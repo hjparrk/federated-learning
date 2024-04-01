@@ -22,9 +22,7 @@ class LinearRegressionModel(nn.Module):
 
 
 def handle_client(conn, clients):
-    """
-    Handle client connection.
-    """
+
     try:
         # receive and decode registration info
         recv = b'' + conn.recv(1024)
@@ -40,63 +38,48 @@ def handle_client(conn, clients):
         print(f"Error: {e}")
 
 
-def register_clients(host, port, num_clients):
-    """
-    Register clients to the server.
-    Returns a list of clients.
-    """
-    # list of registered clients
-    clients = []
+def run_server(host, port, num_subsamples, clients):
 
     # create a TCP socket server
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    # bind the server to the host and port
     server.bind((host, port))
+    server.listen(num_subsamples)
 
-    # listen for incoming connections
-    server.listen(num_clients)
-
-    # set server timer for 30 seconds
-    server.settimeout(10)
+    init_phase = True
 
     while True:
         try:
             # accept the connection from a client
             conn, addr = server.accept()
 
-            # register client
-            client_thread = threading.Thread(
-                target=handle_client, args=(conn, clients))
-            client_thread.start()
+            if init_phase:
+                # register client
+                client_thread = threading.Thread(
+                    target=handle_client, args=(conn, clients))
+                client_thread.start()
 
-        except socket.timeout:
-            # close server
+        except Exception as e:
+            print(f"Error: {e}")
             server.close()
             break
-
-    return clients
 
 
 def main():
 
     # init
+    clients = []
     host = "127.0.0.1"
     port = int(sys.argv[1])
-    num_clients = 5 if int(sys.argv[2]) == 0 else int(sys.argv[2])
+    num_subsamples = 5 if int(sys.argv[2]) == 0 else int(sys.argv[2])
 
     # init model
     model = LinearRegressionModel()
     batch_size = 64
     learning_rate = 0.01
-    num_glob_iters = 100  # No. of global rounds
+    num_glob_iters = 10  # No. of global rounds
 
-    print(model)
-
-    # client registration
-    # clients = register_clients(host, port, num_clients)
-
-    # print(clients)
+    # create server
+    run_server(host, port, num_subsamples, clients)
 
 
 if __name__ == "__main__":

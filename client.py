@@ -9,8 +9,10 @@ def register_to_server(host: str, client_id: str, port: int, data_size):
     """
     try:
         # registration data
-        data = {"client_id": client_id,
-                "client_port": port, "data_size": data_size}
+        # data = {"client_id": client_id,
+        #         "client_port": port, "data_size": data_size}
+
+        data = {"client_id": client_id}
 
         # encode the registration information
         encoded = json.dumps(data).encode("utf-8")

@@ -21,7 +21,7 @@ class LinearRegressionModel(nn.Module):
         return output.reshape(-1)
 
 
-def handle_client(conn, clients):
+def register_client(conn, clients):
 
     try:
         # receive and decode registration info
@@ -40,27 +40,39 @@ def handle_client(conn, clients):
 
 def run_server(host, port, num_subsamples, clients):
 
-    # create a TCP socket server
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((host, port))
-    server.listen(num_subsamples)
-
     init_phase = True
 
     while True:
-        try:
-            # accept the connection from a client
-            conn, addr = server.accept()
 
-            if init_phase:
-                # register client
-                client_thread = threading.Thread(
-                    target=handle_client, args=(conn, clients))
-                client_thread.start()
+        if init_phase:
+            # create a TCP socket server
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.bind((host, port))
+            server.listen(5)
 
-        except Exception as e:
-            print(f"Error: {e}")
-            server.close()
+            # first client tries to register
+            try:
+                conn, addr = server.accept()
+                threading.Thread(target=register_client,
+                                 args=(conn, clients)).start()
+            except Exception as e:
+                print("Error: {e}")
+
+            # wait 30 seconds for other clients to register
+            start_time = time.time()
+            while time.time() - start_time < 30:
+                server.settimeout(30 - (time.time() - start_time))
+                try:
+                    conn, addr = server.accept()
+                    threading.Thread(target=register_client,
+                                     args=(conn, clients)).start()
+                except socket.timeout:
+                    server.close()
+                    init_phase = False
+                    break
+
+        else:
+            print(clients)
             break
 
 

@@ -38,42 +38,54 @@ def register_client(conn, clients):
         print(f"Error: {e}")
 
 
-def run_server(host, port, num_subsamples, clients):
+def run_init_phase(host, port, clients):
+    # create a TCP socket server
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind((host, port))
+    server.listen(5)
 
-    init_phase = True
+    # first client tries to register
+    try:
+        conn, addr = server.accept()
+        threading.Thread(target=register_client,
+                         args=(conn, clients)).start()
+    except Exception as e:
+        print("Error: {e}")
+
+    # wait 30 seconds for other clients to register
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        server.settimeout(30 - (time.time() - start_time))
+        try:
+            conn, addr = server.accept()
+            threading.Thread(target=register_client,
+                             args=(conn, clients)).start()
+        except socket.timeout:
+            server.close()
+            break
+
+
+def broadcast_model(clients):
+    for client in clients:
+        print(client)
+    print()
+
+
+def run_server(host, port, model, clients, num_subsamples):
+
+    # initial clients registration phase
+    run_init_phase(host, port, clients)
+
+    # create a TCP socket server
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind((host, port))
+    server.listen(5)
 
     while True:
+        time.sleep(1)
 
-        if init_phase:
-            # create a TCP socket server
-            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server.bind((host, port))
-            server.listen(5)
-
-            # first client tries to register
-            try:
-                conn, addr = server.accept()
-                threading.Thread(target=register_client,
-                                 args=(conn, clients)).start()
-            except Exception as e:
-                print("Error: {e}")
-
-            # wait 30 seconds for other clients to register
-            start_time = time.time()
-            while time.time() - start_time < 30:
-                server.settimeout(30 - (time.time() - start_time))
-                try:
-                    conn, addr = server.accept()
-                    threading.Thread(target=register_client,
-                                     args=(conn, clients)).start()
-                except socket.timeout:
-                    server.close()
-                    init_phase = False
-                    break
-
-        else:
-            print(clients)
-            break
+        # broadcast global model to clients
+        broadcast_model(model, clients)
 
 
 def main():
@@ -91,7 +103,7 @@ def main():
     num_glob_iters = 10  # No. of global rounds
 
     # create server
-    run_server(host, port, num_subsamples, clients)
+    run_server(host, port, model, clients, num_subsamples)
 
 
 if __name__ == "__main__":

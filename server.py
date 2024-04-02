@@ -1,6 +1,7 @@
 import sys
 import json
 import time
+import select
 import socket
 import threading
 
@@ -19,6 +20,29 @@ class LinearRegressionModel(nn.Module):
         # Apply linear transformation
         output = self.linear(x)
         return output.reshape(-1)
+
+
+class Server():
+    def __init__(self):
+        # init
+        self.clients = []
+        self.host = "127.0.0.1"
+        self.port = int(sys.argv[1])
+        self.num_subsamples = 5 if int(sys.argv[2]) == 0 else int(sys.argv[2])
+        self.server_model = LinearRegressionModel(8)
+        self.batch_size = 64
+        self.learning_rate = 0.01
+        self.num_glob_iters = 10  # No. of global rounds
+        self.total_train_samples = 0
+
+
+def calculate_total_train_samples(clients):
+    # calculate total_train_samples
+    total_train_samples = 0
+    for client in clients:
+        total_train_samples += client["train_samples"]
+
+    return total_train_samples
 
 
 def register_client(conn, clients):
@@ -64,46 +88,95 @@ def run_init_phase(host, port, clients):
             server.close()
             break
 
+    server.close()
 
-def broadcast_model(clients):
-    for client in clients:
-        print(client)
+
+def run_epoch(i):
+    print(f"{i+1}: broadcasting server model")
+    time.sleep(3)
+    print("receiving local models")
+    time.sleep(3)
+    print("aggregation")
+    time.sleep(3)
     print()
 
 
-def run_server(host, port, model, clients, num_subsamples):
+def run_server(server: Server):
 
-    # initial clients registration phase
-    run_init_phase(host, port, clients)
+    for client in server.clients:
+        print(client)
 
-    # create a TCP socket server
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((host, port))
-    server.listen(5)
+    # run non-blocking server socket
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((server.host, server.port))
+    server_socket.listen(20)
+    server_socket.setblocking(False)
 
-    while True:
-        time.sleep(1)
+    inputs = [server_socket]
 
-        # broadcast global model to clients
-        broadcast_model(model, clients)
+    for i in range(10):
+
+        # broadcast server model, receive local model, then aggregate
+        run_epoch(i)
+
+        # check for new client registration
+        while True:
+
+            # monitor readable sockets
+            readable, writable, errored = select.select(inputs, [], [], 0)
+
+            # break if there are no new socket connections
+            if not readable:
+                break
+
+            for s in readable:
+
+                if s is server_socket:
+
+                    # connection from a new client
+                    conn, address = s.accept()
+                    conn.setblocking(False)
+                    inputs.append(conn)
+
+                else:
+                    # receive registration data from the new client
+                    recv = conn.recv(1024)
+
+                    # data exists
+                    if recv:
+                        byted_recv = b'' + recv
+                        decoded = json.loads(byted_recv.decode("utf-8"))
+
+                        print(decoded)
+
+                        # register new client
+                        server.clients.append(decoded)
+                        server.total_train_samples = calculate_total_train_samples(
+                            server.clients)
+
+                        # close connection
+                        inputs.remove(s)
+                        s.close()
+
+                    # no data received
+                    else:
+                        # close connection
+                        inputs.remove(s)
+                        s.close()
 
 
 def main():
 
-    # init
-    clients = []
-    host = "127.0.0.1"
-    port = int(sys.argv[1])
-    num_subsamples = 5 if int(sys.argv[2]) == 0 else int(sys.argv[2])
+    # initialisation of server
+    server = Server()
+    server_model = server.server_model
 
-    # init model
-    model = LinearRegressionModel()
-    batch_size = 64
-    learning_rate = 0.01
-    num_glob_iters = 10  # No. of global rounds
+    # initial clients registration phase
+    run_init_phase(server.host, server.port, server.clients)
+    server.total_train_samples = calculate_total_train_samples(server.clients)
 
-    # create server
-    run_server(host, port, model, clients, num_subsamples)
+    # run algorithm
+    run_server(server)
 
 
 if __name__ == "__main__":

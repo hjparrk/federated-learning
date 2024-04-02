@@ -1,29 +1,44 @@
 import sys
 import json
+import time
 import socket
+import torch
 import numpy as np
-from torch.utils.data import DataLoader
 
 
 def load_data(client_id):
+    # load data set
     train_set = np.genfromtxt(
         f"FLData/calhousing_train_{client_id}.csv", delimiter=',', skip_header=1)
+
     test_set = np.genfromtxt(
         f"FLData/calhousing_test_{client_id}.csv", delimiter=',', skip_header=1)
 
-    return train_set, test_set
+    # split into features(x) and a target(y)
+    x_train = train_set[:, :-1]
+    y_train = train_set[:, -1]
+    x_test = test_set[:, :-1]
+    y_test = test_set[:, -1]
+
+    # cast variables to torch type
+    x_train = torch.Tensor(x_train).type(torch.float32)
+    y_train = torch.Tensor(y_train).type(torch.float32)
+    x_test = torch.Tensor(x_train).type(torch.float32)
+    y_test = torch.Tensor(y_train).type(torch.float32)
+
+    train_samples, test_samples = len(y_train), len(y_test)
+
+    return x_train, y_train, x_test, y_test, train_samples, test_samples
 
 
-def register_to_server(host, client_id, port, data_size):
+def register_to_server(host, client_id, port, train_samples):
     """
     Register the current client node to the server
     """
     try:
         # registration data
-        # data = {"client_id": client_id,
-        #         "client_port": port, "data_size": data_size}
-
-        data = {"client_id": client_id}
+        data = {"client_id": client_id,
+                "client_port": port, "train_samples": train_samples}
 
         # encode the registration information
         encoded = json.dumps(data).encode("utf-8")
@@ -50,9 +65,12 @@ def main():
     port = int(sys.argv[2])
     method = int(sys.argv[3])
 
-    train_set, test_set = load_data(client_id)
+    # load data
+    x_train, y_train, x_test, y_test, train_samples, test_samples = load_data(
+        client_id)
 
-    # register_to_server(host, client_id, port, 300)
+    # register to the server
+    register_to_server(host, client_id, port, train_samples)
 
 
 if __name__ == "__main__":

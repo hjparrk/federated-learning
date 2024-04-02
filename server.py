@@ -91,20 +91,37 @@ def run_init_phase(host, port, clients):
     server.close()
 
 
-def run_epoch(i):
-    print(f"{i+1}: broadcasting server model")
-    time.sleep(3)
-    print("receiving local models")
-    time.sleep(3)
-    print("aggregation")
-    time.sleep(3)
-    print()
+def broadcast_model(server: Server, client):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+
+        # connect to client
+        host = server.host
+        port = int(client["client_port"])
+        server_socket.connect((host, port))
+
+        data = {"model": "server"}
+        encoded = json.dumps(data).encode("utf-8")
+
+        client_id = client["client_id"]
+        print(f"send model to {client_id}")
+        # send server model
+        server_socket.send(encoded)
+
+        recv = b'' + server_socket.recv(1024)
+        decoded = json.loads(recv.decode("utf-8"))
+
+        local_model = decoded["model"]
+        print(f"receive {local_model} model")
+
+        print()
+
+
+def run_epoch(server: Server):
+    for client in server.clients:
+        broadcast_model(server, client)
 
 
 def run_server(server: Server):
-
-    for client in server.clients:
-        print(client)
 
     # run non-blocking server socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -115,9 +132,9 @@ def run_server(server: Server):
     inputs = [server_socket]
 
     for i in range(10):
-
+        print(f"epoch {i}")
         # broadcast server model, receive local model, then aggregate
-        run_epoch(i)
+        run_epoch(server)
 
         # check for new client registration
         while True:
@@ -147,8 +164,6 @@ def run_server(server: Server):
                         byted_recv = b'' + recv
                         decoded = json.loads(byted_recv.decode("utf-8"))
 
-                        print(decoded)
-
                         # register new client
                         server.clients.append(decoded)
                         server.total_train_samples = calculate_total_train_samples(
@@ -169,7 +184,6 @@ def main():
 
     # initialisation of server
     server = Server()
-    server_model = server.server_model
 
     # initial clients registration phase
     run_init_phase(server.host, server.port, server.clients)

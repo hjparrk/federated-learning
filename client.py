@@ -80,6 +80,38 @@ def main():
     register_to_server(client.host, client.client_id,
                        client.port, train_samples)
 
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+
+        # open client socket
+        client_socket.bind((client.host, client.port))
+        client_socket.listen(5)
+
+        while True:
+
+            try:
+                server_socket, addr = client_socket.accept()
+
+                recv = b'' + server_socket.recv(1024)
+                decoded = json.loads(recv.decode("utf-8"))
+
+                server_model = decoded["model"]
+                print(f"receive {server_model} model")
+
+                print("learning ...")
+                time.sleep(5)
+
+                client_id = client.client_id
+                print(f"send {client_id} model\n")
+                data = {"model": client_id}
+                encoded = json.dumps(data).encode("utf-8")
+
+                server_socket.send(encoded)
+
+                server_socket.close()
+
+            except Exception as e:
+                print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     main()

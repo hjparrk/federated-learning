@@ -113,12 +113,26 @@ def broadcast_model(server: Server, client):
         local_model = decoded["model"]
         print(f"receive {local_model} model")
 
-        print()
-
 
 def run_epoch(server: Server):
+
+    threads = []
+
+    # create threads
     for client in server.clients:
-        broadcast_model(server, client)
+        th = threading.Thread(target=(broadcast_model),
+                              args=(server, client, ))
+
+        # store thread to list
+        threads.append(th)
+
+    # start threads
+    for th in threads:
+        th.start()
+
+    # wait for all threads to finish the task
+    for th in threads:
+        th.join()
 
 
 def run_server(server: Server):
@@ -132,7 +146,7 @@ def run_server(server: Server):
     inputs = [server_socket]
 
     for i in range(10):
-        print(f"epoch {i}")
+        print(f"\nepoch {i}")
         # broadcast server model, receive local model, then aggregate
         run_epoch(server)
 

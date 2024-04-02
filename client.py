@@ -6,6 +6,14 @@ import torch
 import numpy as np
 
 
+class Client:
+    def __init__(self):
+        self.client_id = sys.argv[1]
+        self.host = "127.0.0.1"
+        self.port = int(sys.argv[2])
+        self.method = int(sys.argv[3])
+
+
 def load_data(client_id):
     # load data set
     train_set = np.genfromtxt(
@@ -60,17 +68,17 @@ def register_to_server(host, client_id, port, train_samples):
 
 
 def main():
-    client_id = sys.argv[1]
-    host = "127.0.0.1"
-    port = int(sys.argv[2])
-    method = int(sys.argv[3])
+
+    # initialisation of client
+    client = Client()
 
     # load data
     x_train, y_train, x_test, y_test, train_samples, test_samples = load_data(
-        client_id)
+        client.client_id)
 
     # register to the server
-    register_to_server(host, client_id, port, train_samples)
+    register_to_server(client.host, client.client_id,
+                       client.port, train_samples)
 
 
 if __name__ == "__main__":

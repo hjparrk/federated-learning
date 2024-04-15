@@ -122,8 +122,8 @@ class Server():
 
         inputs = [server_socket]
 
-        for i in range(10):
-            print(f"\nepoch {i}")
+        for i in range(self.num_glob_iters):
+            print(f"\niteration {i+1}")
 
             # broadcast server model, receive local model, then aggregate
             self.run_epoch()
@@ -176,17 +176,14 @@ def main():
     # initialisation of server
     server = Server()
 
+    # initial clients registration phase
     server.run_init_phase()
     server.calculate_total_train_samples()
 
-    server.run()
-
-    # initial clients registration phase
-    # run_init_phase(server.host, server.port, server.clients)
-    # server.total_train_samples = calculate_total_train_samples(server.clients)
+    print(server.total_train_samples)
 
     # run algorithm
-    # run_server(server)
+    server.run()
 
 
 if __name__ == "__main__":

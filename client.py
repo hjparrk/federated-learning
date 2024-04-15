@@ -55,8 +55,11 @@ class Client:
                         axis=0)) / np.std(self.x_train, axis=0)
 
         # add extra one's at the beginning of x_train
-        ones = np.ones((self.x_train.shape[0], 1))
-        self.x_train = np.concatenate((ones, self.x_train), axis=1)
+        train_ones = np.ones((self.x_train.shape[0], 1))
+        self.x_train = np.concatenate((train_ones, self.x_train), axis=1)
+
+        test_ones = np.ones((self.x_test.shape[0], 1))
+        self.x_test = np.concatenate((test_ones, self.x_test), axis=1)
 
     def register_to_server(self):
         """
@@ -90,6 +93,20 @@ class Client:
 
         except Exception as e:
             print(f"Error: {e}")
+
+    def test(self):
+        x = self.x_test
+        y = self.y_test
+        w = self.w
+
+        N = len(y)
+
+        prediction = x.dot(w)
+        error = prediction - y
+
+        loss = 1/(2*N) * np.dot(error.T, error)
+
+        return loss
 
     def gradient_descent(self):
 
@@ -138,8 +155,8 @@ class Client:
                     self.w = gloabl_model
                     print("Received new global model")
 
-                    # TODO: testing
-                    print(f"Testing MSE: 0.0052")
+                    test_loss = self.test()
+                    print(f"Testing MSE: {test_loss}")
 
                     # run gradient descent
                     print("Local training...")
@@ -147,7 +164,7 @@ class Client:
                     print(f"Training MSE: {past_loss[-1]}")
 
                     with open(f"Logs/{self.client_id}_log.txt", "a") as logfile:
-                        log = f"Testing MSE: {past_loss[-1]} Training MSE: {past_loss[-1]}\n\n"
+                        log = f"Testing MSE: {test_loss} Training MSE: {past_loss[-1]}\n\n"
                         logfile.write(log)
 
                     # send local model to server

@@ -1,4 +1,4 @@
-# COMP3221 A2 Federated Learning - Group 15
+# Federated Learning (Federated Averaging Algorithm)
 
 ## Prerequisites
 
